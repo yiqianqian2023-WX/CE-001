@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 跨境商务翻译官</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #f0f2f5;
+      min-height: 100vh;
+      padding: 40px 24px;
+      color: #1a1a2e;
+    }
+
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #1e3a5f;
+      text-align: center;
+      margin-bottom: 32px;
+      letter-spacing: 0.02em;
+    }
+
+    .input-section {
+      margin-bottom: 24px;
+    }
+
+    .input-section label {
+      display: block;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: #2c3e50;
+      margin-bottom: 8px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 160px;
+      padding: 16px 18px;
+      font-size: 1rem;
+      font-family: inherit;
+      line-height: 1.6;
+      border: 1px solid #d1d9e0;
+      border-radius: 10px;
+      background: #fff;
+      resize: vertical;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: #1e3a5f;
+      box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.12);
+    }
+
+    textarea::placeholder {
+      color: #8b9cad;
+    }
+
+    .btn-translate {
+      width: 100%;
+      padding: 14px 24px;
+      font-size: 1.05rem;
+      font-weight: 600;
+      font-family: inherit;
+      color: #fff;
+      background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 4px 14px rgba(30, 58, 95, 0.35);
+    }
+
+    .btn-translate:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(30, 58, 95, 0.4);
+    }
+
+    .btn-translate:active {
+      transform: translateY(0);
+    }
+
+    .btn-translate:disabled {
+      cursor: not-allowed;
+      opacity: 0.75;
+      transform: none;
+    }
+
+    .result-section {
+      margin-top: 28px;
+    }
+
+    .result-section label {
+      display: block;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: #2c3e50;
+      margin-bottom: 8px;
+    }
+
+    .result-box {
+      min-height: 140px;
+      padding: 20px 22px;
+      font-size: 1rem;
+      line-height: 1.7;
+      background: #fefce8;
+      border: 1px solid #f5e6b3;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+      color: #3d3d2e;
+    }
+
+    .result-box.loading {
+      color: #6b7280;
+      font-style: italic;
+    }
+
+    .result-box:empty::before {
+      content: '翻译结果将显示在这里';
+      color: #9ca3af;
+    }
+
+    .result-actions {
+      margin-top: 12px;
+      display: none;
+    }
+
+    .result-actions.visible {
+      display: block;
+    }
+
+    .btn-copy {
+      padding: 10px 20px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      font-family: inherit;
+      color: #1e3a5f;
+      background: #fff;
+      border: 1px solid #2d5a87;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .btn-copy:hover {
+      background: #1e3a5f;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>AI 跨境商务翻译官</h1>
+
+    <div class="input-section">
+      <label for="input-text">输入内容</label>
+      <textarea
+        id="input-text"
+        placeholder="请输入需要翻译的商品描述或询盘内容..."
+        rows="6"
+      ></textarea>
+    </div>
+
+    <button type="button" class="btn-translate" id="btn-translate">智能翻译并美化</button>
+
+    <div class="result-section">
+      <label for="result-box">翻译结果</label>
+      <div class="result-box" id="result-box" role="status" aria-live="polite"></div>
+      <div class="result-actions" id="result-actions">
+        <button type="button" class="btn-copy" id="btn-copy">一键复制</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const apiKey = 'sk-6a1c04a0cf7c42b789e6e817460ccf09';
+      const apiUrl = 'https://api.deepseek.com/chat/completions';
+      const model = 'deepseek-chat';
+
+      const systemPrompt = '你是一名精通阿里巴巴国际站运营的翻译专家。你的任务是将用户输入的中文翻译成 B2B 商务英语。要求：亲切、友好、保留 4G、NFC、Android 等技术规格词不意译；语境要专业、睿智、温和。只输出翻译后的英文内容，不要额外解释。';
+
+      var btn = document.getElementById('btn-translate');
+      var input = document.getElementById('input-text');
+      var resultBox = document.getElementById('result-box');
+      var resultActions = document.getElementById('result-actions');
+      var btnCopy = document.getElementById('btn-copy');
+      var btnOriginalText = btn.textContent;
+      var btnCopyOriginalText = btnCopy.textContent;
+      var COOLDOWN_MS = 10000;
+
+      function setLoading(loading) {
+        btn.disabled = loading;
+        btn.textContent = loading ? '正在调用 DeepSeek 大脑...' : btnOriginalText;
+        if (loading) {
+          resultBox.textContent = 'AI 正在分析语境并翻译中...';
+          resultBox.classList.add('loading');
+          resultActions.classList.remove('visible');
+        } else {
+          resultBox.classList.remove('loading');
+        }
+      }
+
+      function setButtonEnabled(enabled, text) {
+        btn.disabled = !enabled;
+        btn.textContent = text || btnOriginalText;
+      }
+
+      function isApiKeyError(status, data) {
+        if (status === 401 || status === 403) return true;
+        var msg = (data && data.error && data.error.message) ? (data.error.message + '').toLowerCase() : '';
+        return msg.indexOf('invalid') !== -1 || msg.indexOf('api key') !== -1 || msg.indexOf('authorization') !== -1 || msg.indexOf('unauthorized') !== -1;
+      }
+
+      function showError(msg) {
+        resultBox.textContent = '翻译失败：' + msg;
+        resultBox.classList.remove('loading');
+        resultActions.classList.remove('visible');
+      }
+
+      function showResult(content) {
+        resultBox.textContent = content.trim();
+        resultActions.classList.add('visible');
+      }
+
+      btn.addEventListener('click', function () {
+        var text = (input.value || '').trim();
+        if (!text) {
+          resultBox.textContent = '请先输入需要翻译的中文内容。';
+          resultBox.classList.remove('loading');
+          resultActions.classList.remove('visible');
+          return;
+        }
+
+        var clickTime = Date.now();
+        setLoading(true);
+
+        var body = {
+          model: model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: '请将以下中文翻译成 B2B 商务英语：\n\n' + text }
+          ]
+        };
+
+        fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + apiKey
+          },
+          body: JSON.stringify(body)
+        })
+          .then(function (res) {
+            return res.json().then(function (data) {
+              if (!res.ok) {
+                if (isApiKeyError(res.status, data)) {
+                  showError('请检查 API Key 是否正确配置（DeepSeek 控制台复制后粘贴到代码中）。');
+                  throw new Error('API_KEY');
+                }
+                if (res.status === 429) {
+                  showError('请求太快了，请稍等一分钟再试');
+                  throw new Error('429');
+                }
+                var msg = (data.error && data.error.message) ? data.error.message : ('HTTP ' + res.status);
+                showError(msg);
+                throw new Error(msg);
+              }
+              return data;
+            });
+          })
+          .then(function (data) {
+            var content = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+            if (content) {
+              showResult((content + '').trim());
+            } else {
+              showError('接口返回格式异常，未获取到翻译内容。');
+            }
+          })
+          .catch(function (err) {
+            if (err.message === 'API_KEY' || err.message === '429' || (err.message && err.message.indexOf('HTTP') === 0)) return;
+            var msg = err.message || String(err);
+            if (msg === 'Failed to fetch' || msg.indexOf('NetworkError') !== -1) {
+              msg = '网络异常，请检查网络连接后重试。';
+            }
+            showError(msg);
+          })
+          .finally(function () {
+            setLoading(false);
+            var elapsed = Date.now() - clickTime;
+            var remain = Math.max(0, COOLDOWN_MS - elapsed);
+            if (remain > 0) {
+              btn.disabled = true;
+              var end = Date.now() + remain;
+              var tick = function () {
+                var left = Math.ceil((end - Date.now()) / 1000);
+                if (left > 0) {
+                  btn.textContent = left + ' 秒后可再试';
+                  setTimeout(tick, 500);
+                } else {
+                  setButtonEnabled(true);
+                }
+              };
+              tick();
+            }
+          });
+      });
+
+      btnCopy.addEventListener('click', function () {
+        var text = resultBox.textContent;
+        if (!text) return;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(function () {
+            btnCopy.textContent = '已复制';
+            setTimeout(function () { btnCopy.textContent = btnCopyOriginalText; }, 1500);
+          }).catch(function () {
+            fallbackCopy(text);
+          });
+        } else {
+          fallbackCopy(text);
+        }
+      });
+
+      function fallbackCopy(str) {
+        var ta = document.createElement('textarea');
+        ta.value = str;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+          document.execCommand('copy');
+          btnCopy.textContent = '已复制';
+          setTimeout(function () { btnCopy.textContent = btnCopyOriginalText; }, 1500);
+        } catch (e) {
+          alert('复制失败，请手动选择结果区域复制。');
+        }
+        document.body.removeChild(ta);
+      }
+    })();
+  </script>
+</body>
+</html>
