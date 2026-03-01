@@ -72,12 +72,58 @@
       margin-bottom: 24px;
     }
 
+    .input-section .input-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
     .input-section label {
-      display: block;
       font-size: 0.9rem;
       font-weight: 500;
       color: #2c3e50;
-      margin-bottom: 8px;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
+      color: #2c3e50;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      background: #d1d9e0;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .toggle-switch.on {
+      background: #1e3a5f;
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      transition: transform 0.2s;
+    }
+
+    .toggle-switch.on::after {
+      transform: translateX(20px);
     }
 
     textarea {
@@ -168,6 +214,52 @@
       color: #9ca3af;
     }
 
+    .result-bilingual {
+      display: none;
+    }
+
+    .result-bilingual.visible {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 600px) {
+      .result-bilingual.visible {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .result-bilingual .result-part-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #1e3a5f;
+      margin-bottom: 6px;
+    }
+
+    .result-bilingual .result-chinese-box {
+      min-height: 100px;
+      padding: 16px 18px;
+      font-size: 1rem;
+      line-height: 1.7;
+      background: #f0f2f5;
+      border: 1px solid #e4e8ec;
+      border-radius: 10px;
+      color: #3d3d2e;
+    }
+
+    .result-bilingual .result-target-box {
+      min-height: 100px;
+      padding: 16px 18px;
+      font-size: 1rem;
+      line-height: 1.7;
+      background: #fefce8;
+      border: 1px solid #f5e6b3;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+      color: #3d3d2e;
+    }
+
     .result-actions {
       margin-top: 12px;
       display: none;
@@ -213,7 +305,13 @@
     </div>
 
     <div class="input-section">
-      <label for="input-text">输入内容</label>
+      <div class="input-header">
+        <label for="input-text">输入内容</label>
+        <div class="toggle-row">
+          <span>询盘分析模式</span>
+          <div id="toggle-inquiry" class="toggle-switch" role="button" tabindex="0" aria-pressed="false" aria-label="询盘分析模式开关"></div>
+        </div>
+      </div>
       <textarea
         id="input-text"
         placeholder="请输入需要翻译的商品描述或询盘内容..."
@@ -226,6 +324,16 @@
     <div class="result-section">
       <label for="result-box">翻译结果</label>
       <div class="result-box" id="result-box" role="status" aria-live="polite"></div>
+      <div class="result-bilingual" id="result-bilingual">
+        <div class="result-part">
+          <div class="result-part-label">中文校对稿</div>
+          <div class="result-chinese-box" id="result-chinese"></div>
+        </div>
+        <div class="result-part">
+          <div class="result-part-label">目标语种最终稿</div>
+          <div class="result-target-box" id="result-target"></div>
+        </div>
+      </div>
       <div class="result-actions" id="result-actions">
         <button type="button" class="btn-copy" id="btn-copy">一键复制</button>
       </div>
@@ -237,16 +345,40 @@
       var btn = document.getElementById('btn-translate');
       var input = document.getElementById('input-text');
       var resultBox = document.getElementById('result-box');
+      var resultBilingual = document.getElementById('result-bilingual');
+      var resultChinese = document.getElementById('result-chinese');
+      var resultTarget = document.getElementById('result-target');
       var resultActions = document.getElementById('result-actions');
       var btnCopy = document.getElementById('btn-copy');
+      var toggleInquiry = document.getElementById('toggle-inquiry');
       var btnOriginalText = btn.textContent;
       var btnCopyOriginalText = btnCopy.textContent;
       var COOLDOWN_MS = 10000;
+      var PLACEHOLDER_NORMAL = '请输入需要翻译的商品描述或询盘内容...';
+      var PLACEHOLDER_INQUIRY = '请粘贴客户的原始询盘内容';
+
+      var isInquiryMode = false;
+
+      toggleInquiry.addEventListener('click', function () {
+        isInquiryMode = !isInquiryMode;
+        toggleInquiry.classList.toggle('on', isInquiryMode);
+        toggleInquiry.setAttribute('aria-pressed', isInquiryMode);
+        input.placeholder = isInquiryMode ? PLACEHOLDER_INQUIRY : PLACEHOLDER_NORMAL;
+      });
+
+      toggleInquiry.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          toggleInquiry.click();
+        }
+      });
 
       function setLoading(loading) {
         btn.disabled = loading;
         btn.textContent = loading ? '正在调用 DeepSeek 大脑...' : btnOriginalText;
         if (loading) {
+          resultBox.style.display = 'block';
+          resultBilingual.classList.remove('visible');
           resultBox.textContent = 'AI 正在分析语境并翻译中...';
           resultBox.classList.add('loading');
           resultActions.classList.remove('visible');
@@ -261,20 +393,35 @@
       }
 
       function showError(msg) {
+        resultBox.style.display = 'block';
+        resultBilingual.classList.remove('visible');
         resultBox.textContent = '翻译失败：' + msg;
         resultBox.classList.remove('loading');
         resultActions.classList.remove('visible');
       }
 
-      function showResult(content) {
-        resultBox.textContent = content.trim();
+      function showResultBilingual(chinese, target) {
+        resultBox.style.display = 'none';
+        resultBilingual.classList.add('visible');
+        resultChinese.textContent = (chinese || '').trim() || '—';
+        resultTarget.textContent = (target || '').trim() || '—';
         resultActions.classList.add('visible');
+      }
+
+      function getTargetTextForCopy() {
+        if (resultBilingual.classList.contains('visible')) {
+          return (resultTarget.textContent || '').trim();
+        }
+        return '';
       }
 
       btn.addEventListener('click', function () {
         var text = (input.value || '').trim();
+        var hint = isInquiryMode ? '请先粘贴客户的原始询盘内容。' : '请先输入需要翻译的中文内容。';
         if (!text) {
-          resultBox.textContent = '请先输入需要翻译的中文内容。';
+          resultBox.style.display = 'block';
+          resultBilingual.classList.remove('visible');
+          resultBox.textContent = hint;
           resultBox.classList.remove('loading');
           resultActions.classList.remove('visible');
           return;
@@ -289,7 +436,7 @@
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ text: text, targetLang: targetLang })
+          body: JSON.stringify({ text: text, targetLang: targetLang, inquiryAnalysis: isInquiryMode })
         })
           .then(function (res) {
             return res.json().then(function (data) {
@@ -311,7 +458,19 @@
           })
           .then(function (data) {
             if (data.success && data.content) {
-              showResult(data.content);
+              var chinese, target;
+              if (isInquiryMode && data.keyRequirements !== undefined && data.replySuggestion !== undefined) {
+                chinese = data.keyRequirements;
+                target = data.replySuggestion;
+              } else if (isInquiryMode && data.content) {
+                var parts = (data.content + '').split(/【专业回复建议】/);
+                chinese = parts[0] ? parts[0].replace(/^【客户需求核心提炼】\s*/, '').trim() : '';
+                target = parts[1] ? parts[1].trim() : '';
+              } else {
+                chinese = (data.chinese_review != null && data.chinese_review !== '') ? data.chinese_review : text;
+                target = (data.target_translation != null && data.target_translation !== '') ? data.target_translation : data.content;
+              }
+              showResultBilingual(chinese, target);
             } else {
               showError((data && data.error) ? data.error : '未获取到翻译内容。');
             }
@@ -346,7 +505,7 @@
       });
 
       btnCopy.addEventListener('click', function () {
-        var text = resultBox.textContent;
+        var text = getTargetTextForCopy();
         if (!text) return;
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(text).then(function () {
