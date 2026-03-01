@@ -36,6 +36,38 @@
       letter-spacing: 0.02em;
     }
 
+    .lang-section {
+      margin-bottom: 20px;
+    }
+
+    .lang-section label {
+      display: block;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: #2c3e50;
+      margin-bottom: 8px;
+    }
+
+    .select-lang {
+      width: 100%;
+      max-width: 200px;
+      padding: 10px 14px;
+      font-size: 1rem;
+      font-family: inherit;
+      color: #1e3a5f;
+      background: #fff;
+      border: 1px solid #d1d9e0;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .select-lang:focus {
+      outline: none;
+      border-color: #1e3a5f;
+      box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.12);
+    }
+
     .input-section {
       margin-bottom: 24px;
     }
@@ -168,6 +200,18 @@
   <div class="container">
     <h1>AI 跨境商务翻译官</h1>
 
+    <div class="lang-section">
+      <label for="target-lang">目标语种</label>
+      <select id="target-lang" class="select-lang">
+        <option value="en" selected>英语</option>
+        <option value="de">德语</option>
+        <option value="fr">法语</option>
+        <option value="es">西班牙语</option>
+        <option value="ja">日语</option>
+        <option value="ar">阿拉伯语</option>
+      </select>
+    </div>
+
     <div class="input-section">
       <label for="input-text">输入内容</label>
       <textarea
@@ -237,6 +281,7 @@
         }
 
         var clickTime = Date.now();
+        var targetLang = document.getElementById('target-lang').value;
         setLoading(true);
 
         fetch('/api/translate', {
@@ -244,7 +289,7 @@
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ text: text })
+          body: JSON.stringify({ text: text, targetLang: targetLang })
         })
           .then(function (res) {
             return res.json().then(function (data) {
