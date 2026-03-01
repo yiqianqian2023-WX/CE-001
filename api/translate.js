@@ -1,7 +1,18 @@
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
 const MODEL = 'deepseek-chat';
 
-const SYSTEM_PROMPT = '你是一名精通阿里巴巴国际站运营的翻译专家。你的任务是将用户输入的中文翻译成 B2B 商务英语。要求：亲切、友好、保留 4G、NFC、Android 等技术规格词不意译；语境要专业、睿智、温和。只输出翻译后的英文内容，不要额外解释。';
+const LANG_MAP = {
+  en: '英语',
+  de: '德语',
+  fr: '法语',
+  es: '西班牙语',
+  ja: '日语',
+  ar: '阿拉伯语'
+};
+
+function buildSystemPrompt(langName) {
+  return '你是一名精通阿里巴巴国际站运营的翻译专家。你的任务是将用户输入的中文翻译成地道的商务' + langName + '。要求：严格遵守阿里国际站 B 端规范；亲切、友好；保留 4G、NFC、Android 等技术规格词不意译；语境要专业、睿智、温和。只输出翻译后的内容，不要额外解释。';
+}
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -29,6 +40,11 @@ module.exports = async function handler(req, res) {
     return;
   }
 
+  const targetLangCode = (body && body.targetLang) ? String(body.targetLang).trim() : 'en';
+  const langName = LANG_MAP[targetLangCode] || LANG_MAP.en;
+  const systemPrompt = buildSystemPrompt(langName);
+  const userPrompt = '请将以下中文翻译成地道的商务' + langName + '：\n\n' + text;
+
   try {
     const response = await fetch(DEEPSEEK_API_URL, {
       method: 'POST',
@@ -39,8 +55,8 @@ module.exports = async function handler(req, res) {
       body: JSON.stringify({
         model: MODEL,
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: '请将以下中文翻译成 B2B 商务英语：\n\n' + text }
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
         ]
       })
     });
