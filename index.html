@@ -22,6 +22,7 @@
       color: #1a1a2e;
     }
 
+
     .container {
       max-width: 720px;
       margin: 0 auto;
@@ -90,19 +91,25 @@
     .toggle-row {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
+      min-height: 44px;
+      padding: 4px 0;
       font-size: 0.9rem;
       color: #2c3e50;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
     }
 
     .toggle-switch {
       position: relative;
-      width: 44px;
-      height: 24px;
+      width: 48px;
+      height: 28px;
+      flex-shrink: 0;
       background: #d1d9e0;
-      border-radius: 12px;
+      border-radius: 14px;
       cursor: pointer;
       transition: background 0.2s;
+      -webkit-tap-highlight-color: transparent;
     }
 
     .toggle-switch.on {
@@ -112,8 +119,8 @@
     .toggle-switch::after {
       content: '';
       position: absolute;
-      top: 2px;
-      left: 2px;
+      top: 4px;
+      left: 4px;
       width: 20px;
       height: 20px;
       background: #fff;
@@ -210,54 +217,18 @@
     }
 
     .result-box:empty::before {
-      content: '翻译结果将显示在这里';
+      content: '输出结果将显示在这里';
       color: #9ca3af;
     }
 
-    .result-bilingual {
-      display: none;
-    }
-
-    .result-bilingual.visible {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-    }
-
-    @media (max-width: 600px) {
-      .result-bilingual.visible {
-        grid-template-columns: 1fr;
+    @media (max-width: 480px) {
+      body {
+        padding: 24px 16px;
       }
-    }
-
-    .result-bilingual .result-part-label {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: #1e3a5f;
-      margin-bottom: 6px;
-    }
-
-    .result-bilingual .result-chinese-box {
-      min-height: 100px;
-      padding: 16px 18px;
-      font-size: 1rem;
-      line-height: 1.7;
-      background: #f0f2f5;
-      border: 1px solid #e4e8ec;
-      border-radius: 10px;
-      color: #3d3d2e;
-    }
-
-    .result-bilingual .result-target-box {
-      min-height: 100px;
-      padding: 16px 18px;
-      font-size: 1rem;
-      line-height: 1.7;
-      background: #fefce8;
-      border: 1px solid #f5e6b3;
-      border-radius: 10px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
-      color: #3d3d2e;
+      .input-section .input-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
     }
 
     .result-actions {
@@ -306,15 +277,15 @@
 
     <div class="input-section">
       <div class="input-header">
-        <label for="input-text">输入内容</label>
-        <div class="toggle-row">
+        <label for="input-text" id="input-label">我的中文内容（待翻译）</label>
+        <div class="toggle-row" id="toggle-row" role="button" tabindex="0" aria-label="询盘分析模式开关">
           <span>询盘分析模式</span>
-          <div id="toggle-inquiry" class="toggle-switch" role="button" tabindex="0" aria-pressed="false" aria-label="询盘分析模式开关"></div>
+          <div id="toggle-inquiry" class="toggle-switch" aria-hidden="true"></div>
         </div>
       </div>
       <textarea
         id="input-text"
-        placeholder="请输入需要翻译的商品描述或询盘内容..."
+        placeholder="请输入需要翻译的中文内容..."
         rows="6"
       ></textarea>
     </div>
@@ -322,18 +293,8 @@
     <button type="button" class="btn-translate" id="btn-translate">智能翻译并美化</button>
 
     <div class="result-section">
-      <label for="result-box">翻译结果</label>
+      <label for="result-box" id="result-label">翻译结果</label>
       <div class="result-box" id="result-box" role="status" aria-live="polite"></div>
-      <div class="result-bilingual" id="result-bilingual">
-        <div class="result-part">
-          <div class="result-part-label">中文校对稿</div>
-          <div class="result-chinese-box" id="result-chinese"></div>
-        </div>
-        <div class="result-part">
-          <div class="result-part-label">目标语种最终稿</div>
-          <div class="result-target-box" id="result-target"></div>
-        </div>
-      </div>
       <div class="result-actions" id="result-actions">
         <button type="button" class="btn-copy" id="btn-copy">一键复制</button>
       </div>
@@ -344,32 +305,46 @@
     (function () {
       var btn = document.getElementById('btn-translate');
       var input = document.getElementById('input-text');
+      var inputLabel = document.getElementById('input-label');
+      var resultLabel = document.getElementById('result-label');
       var resultBox = document.getElementById('result-box');
-      var resultBilingual = document.getElementById('result-bilingual');
-      var resultChinese = document.getElementById('result-chinese');
-      var resultTarget = document.getElementById('result-target');
       var resultActions = document.getElementById('result-actions');
       var btnCopy = document.getElementById('btn-copy');
       var toggleInquiry = document.getElementById('toggle-inquiry');
       var btnOriginalText = btn.textContent;
       var btnCopyOriginalText = btnCopy.textContent;
       var COOLDOWN_MS = 10000;
-      var PLACEHOLDER_NORMAL = '请输入需要翻译的商品描述或询盘内容...';
-      var PLACEHOLDER_INQUIRY = '请粘贴客户的原始询盘内容';
+      var PLACEHOLDER_NORMAL = '请输入需要翻译的中文内容...';
+      var PLACEHOLDER_INQUIRY = '请粘贴客户原始询盘，提取关键词';
+      var LABEL_NORMAL = '我的中文内容（待翻译）';
+      var LABEL_INQUIRY = '客户原始询盘（提取关键词）';
+      var RESULT_LABEL_NORMAL = '翻译结果';
+      var RESULT_LABEL_INQUIRY = '提取的关键词';
 
       var isInquiryMode = false;
 
-      toggleInquiry.addEventListener('click', function () {
+      function updateModeUI() {
+        inputLabel.textContent = isInquiryMode ? LABEL_INQUIRY : LABEL_NORMAL;
+        input.placeholder = isInquiryMode ? PLACEHOLDER_INQUIRY : PLACEHOLDER_NORMAL;
+        resultLabel.textContent = isInquiryMode ? RESULT_LABEL_INQUIRY : RESULT_LABEL_NORMAL;
+      }
+
+      function doToggle() {
         isInquiryMode = !isInquiryMode;
         toggleInquiry.classList.toggle('on', isInquiryMode);
-        toggleInquiry.setAttribute('aria-pressed', isInquiryMode);
-        input.placeholder = isInquiryMode ? PLACEHOLDER_INQUIRY : PLACEHOLDER_NORMAL;
-      });
+        toggleRow.setAttribute('aria-pressed', isInquiryMode);
+        updateModeUI();
+      }
 
-      toggleInquiry.addEventListener('keydown', function (e) {
+      var toggleRow = document.getElementById('toggle-row');
+      toggleRow.addEventListener('click', function (e) {
+        e.preventDefault();
+        doToggle();
+      });
+      toggleRow.addEventListener('keydown', function (e) {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          toggleInquiry.click();
+          doToggle();
         }
       });
 
@@ -378,8 +353,7 @@
         btn.textContent = loading ? '正在调用 DeepSeek 大脑...' : btnOriginalText;
         if (loading) {
           resultBox.style.display = 'block';
-          resultBilingual.classList.remove('visible');
-          resultBox.textContent = 'AI 正在分析语境并翻译中...';
+          resultBox.textContent = isInquiryMode ? 'AI 正在提取关键词...' : 'AI 正在分析语境并翻译中...';
           resultBox.classList.add('loading');
           resultActions.classList.remove('visible');
         } else {
@@ -394,25 +368,19 @@
 
       function showError(msg) {
         resultBox.style.display = 'block';
-        resultBilingual.classList.remove('visible');
-        resultBox.textContent = '翻译失败：' + msg;
+        resultBox.textContent = '操作失败：' + msg;
         resultBox.classList.remove('loading');
         resultActions.classList.remove('visible');
       }
 
-      function showResultBilingual(chinese, target) {
-        resultBox.style.display = 'none';
-        resultBilingual.classList.add('visible');
-        resultChinese.textContent = (chinese || '').trim() || '—';
-        resultTarget.textContent = (target || '').trim() || '—';
+      function showResult(content) {
+        resultBox.style.display = 'block';
+        resultBox.textContent = (content || '').trim() || '—';
         resultActions.classList.add('visible');
       }
 
-      function getTargetTextForCopy() {
-        if (resultBilingual.classList.contains('visible')) {
-          return (resultTarget.textContent || '').trim();
-        }
-        return '';
+      function getResultTextForCopy() {
+        return (resultBox.textContent || '').trim();
       }
 
       btn.addEventListener('click', function () {
@@ -420,7 +388,6 @@
         var hint = isInquiryMode ? '请先粘贴客户的原始询盘内容。' : '请先输入需要翻译的中文内容。';
         if (!text) {
           resultBox.style.display = 'block';
-          resultBilingual.classList.remove('visible');
           resultBox.textContent = hint;
           resultBox.classList.remove('loading');
           resultActions.classList.remove('visible');
@@ -436,7 +403,7 @@
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ text: text, targetLang: targetLang, inquiryAnalysis: isInquiryMode })
+          body: JSON.stringify({ text: text, targetLang: targetLang, isAnalysisMode: isInquiryMode })
         })
           .then(function (res) {
             return res.json().then(function (data) {
@@ -457,22 +424,10 @@
             });
           })
           .then(function (data) {
-            if (data.success && data.content) {
-              var chinese, target;
-              if (isInquiryMode && data.keyRequirements !== undefined && data.replySuggestion !== undefined) {
-                chinese = data.keyRequirements;
-                target = data.replySuggestion;
-              } else if (isInquiryMode && data.content) {
-                var parts = (data.content + '').split(/【专业回复建议】/);
-                chinese = parts[0] ? parts[0].replace(/^【客户需求核心提炼】\s*/, '').trim() : '';
-                target = parts[1] ? parts[1].trim() : '';
-              } else {
-                chinese = (data.chinese_review != null && data.chinese_review !== '') ? data.chinese_review : text;
-                target = (data.target_translation != null && data.target_translation !== '') ? data.target_translation : data.content;
-              }
-              showResultBilingual(chinese, target);
+            if (data.success && data.result != null) {
+              showResult(data.result);
             } else {
-              showError((data && data.error) ? data.error : '未获取到翻译内容。');
+              showError((data && data.error) ? data.error : '未获取到结果。');
             }
           })
           .catch(function (err) {
@@ -505,7 +460,7 @@
       });
 
       btnCopy.addEventListener('click', function () {
-        var text = getTargetTextForCopy();
+        var text = getResultTextForCopy();
         if (!text) return;
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(text).then(function () {
