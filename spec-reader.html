@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>参数图片转 Listing 助手</title>
+    <style>
+        :root { --primary-color: #1a3a5f; --secondary-color: #2c5282; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
+        h2 { color: var(--primary-color); text-align: center; margin-bottom: 25px; }
+        .upload-area { border: 2px dashed #cbd5e0; padding: 40px; text-align: center; border-radius: 8px; cursor: pointer; margin-bottom: 20px; transition: border 0.3s; }
+        .upload-area:hover { border-color: var(--secondary-color); }
+        #preview { max-width: 100%; margin-top: 15px; border-radius: 4px; display: none; }
+        button { width: 100%; padding: 12px; background-color: var(--primary-color); color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; margin-top: 10px; }
+        button:hover { background-color: var(--secondary-color); }
+        .result-box { margin-top: 25px; padding: 15px; background: #edf2f7; border-radius: 6px; min-height: 100px; white-space: pre-wrap; word-break: break-all; font-size: 14px; color: #2d3748; }
+        .nav-link { display: block; text-align: center; margin-bottom: 20px; color: var(--secondary-color); text-decoration: none; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="nav-link">← 返回翻译助手</a>
+        <h2>📷 参数图转 Listing</h2>
+        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+            <p>点击或拖拽上传产品参数图</p>
+            <input type="file" id="fileInput" hidden accept="image/*" onchange="previewImage(this)">
+            <img id="preview">
+        </div>
+        <button id="btn" onclick="analyzeImage()">开始解析参数</button>
+        <div id="result" class="result-box">解析结果将显示在这里...</div>
+        <button onclick="copyText()">一键复制结果</button>
+    </div>
+
+    <script>
+        function previewImage(input) {
+            const preview = document.getElementById('preview');
+            const reader = new FileReader();
+            reader.onload = e => { preview.src = e.target.result; preview.style.display = 'block'; };
+            if (input.files[0]) reader.readAsDataURL(input.files[0]);
+        }
+
+        async function analyzeImage() {
+            const file = document.getElementById('fileInput').files[0];
+            if (!file) return alert('请先上传图片');
+            const btn = document.getElementById('btn');
+            const resultDiv = document.getElementById('result');
+            
+            btn.disabled = true; btn.innerText = '正在精准识别中...';
+            
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+                const base64Data = reader.result.split(',')[1];
+                try {
+                    const response = await fetch('/api/vision', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ image: base64Data })
+                    });
+                    const data = await response.json();
+                    resultDiv.innerText = data.output;
+                } catch (e) { resultDiv.innerText = '解析失败，请检查网络或 API 设置'; }
+                btn.disabled = false; btn.innerText = '开始解析参数';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function copyText() {
+            const text = document.getElementById('result').innerText;
+            navigator.clipboard.writeText(text).then(() => alert('复制成功！'));
+        }
+    </script>
+</body>
+</html>
